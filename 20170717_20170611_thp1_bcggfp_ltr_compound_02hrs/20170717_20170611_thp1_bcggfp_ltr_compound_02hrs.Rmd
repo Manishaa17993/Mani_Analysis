@@ -1,0 +1,678 @@
+---
+title: "20170717_20170611_thp1_bcggfp_ltr_compound_02hrs"
+author: "MANISHA"
+date: "July 18, 2017"
+output: 
+    html_document: 
+        code_folding: hide
+        fig_caption: yes
+        fig_height: 8
+        fig_width: 12
+        fontsize: 10pt
+        toc_float: 
+        collapsed: false    
+        smooth_scroll: FALSE
+---
+
+# Load the config
+
+In this file there is experiment that is analysed.
+- IMAGING - Z - PERKIN ELMER
+
+
+This experiments was performed by Manisha in PE SPINNING DISC to check the  effects of 3 compounds (test+dmso) at 1 doses - 10uM & 1 timepoint - 02 hrs on THP1 macrophages upon infection -  BCG.
+
+```{r, eval=TRUE, message=FALSE, warning=FALSE}
+library(magrittr)
+library(dplyr)
+library(ggplot2)
+source("R/ggtheme_jack.R")
+source("R/fun_multiplot.R")
+ggplot2::theme_set(theme_jack())
+
+stats_mean <- "TRUE"
+filter_mean <- "TRUE"
+fit_plots <- "TRUE"
+
+base_path <- c("../../../data")
+
+exp_name_file <- c("20170717_20170611_thp1_bcggfp_ltr_compound_02hrs_Cells")
+exp_name_layout <- c("20170717_20170611_thp1_bcggfp_ltr_compound_02hrs_layout")
+
+dat <- readr::read_csv(sprintf("%s/%s.csv",base_path, exp_name_file))
+
+
+dat_layout <- readr::read_csv(sprintf("%s/%s.csv",base_path, exp_name_layout))
+
+
+dat <- inner_join(dat,dat_layout, by = "Metadata_Series")
+
+
+```
+# name to plot the data
+
+```{r, message=FALSE, eval=fit_plots}
+
+unique(dat$Children_GCH_Count)
+
+dat$Metadata_InfStatus[dat$Metadata_Infection == "INF" & dat$Children_GCH_Count == 0] <-  "Bystander" 
+dat$Metadata_InfStatus[dat$Metadata_Infection == "INF" & dat$Children_GCH_Count > 0] <-  "Inf" 
+dat$Metadata_InfStatus[dat$Metadata_Infection == "UNINF" & dat$Children_GCH_Count == 0] <-  "Unexp"
+dat$Metadata_InfStatus[dat$Metadata_Infection == "UNINF" & dat$Children_GCH_Count > 0] <-  "Inf"
+
+unique(dat$Metadata_InfStatus)
+
+dat$Metadata_Status <- paste(dat$Metadata_Treatment, dat$Metadata_InfStatus, sep="_")
+
+unique(dat$Metadata_Status)
+
+dat$Metadata_Treatment[dat$Metadata_Treatment == "A13"] <- "C23"
+dat$Metadata_Treatment[dat$Metadata_Treatment == "A21"] <- "C16"
+dat$Metadata_Treatment[dat$Metadata_Treatment == "A20"] <- "C1"
+
+```
+
+# select the data
+
+```{r, message=FALSE, eval=stats_mean}
+
+
+dat %<>%
+  select(
+    contains("Metadata"),
+    contains("Children"),
+    contains("AreaShape_Area"),
+    contains("Intensity_IntegratedIntensity"),
+    contains("Object_Number")
+    )
+
+dat %<>% 
+  select(
+    -contains("Edge"), 
+    -contains("Frame"), 
+    -contains("Channel"),
+    -contains("Site"),
+    -contains("FileLocation"),
+    -contains("ColorFormat"),
+    -contains("Plate"),
+    -contains("Size")
+    )
+
+
+```
+
+
+# filter the data
+
+```{r, message=FALSE, eval=filter_mean}
+
+
+p1 <- dat %>% ggplot(aes(Intensity_IntegratedIntensity_OrigBCH)) + geom_density() + xlim(0,12000)
+p2 <- dat %>% ggplot(aes(Intensity_IntegratedIntensity_OrigGCH)) + geom_density() + xlim(0,5000)
+p3 <- dat %>% ggplot(aes(Intensity_IntegratedIntensity_OrigRCH)) + geom_density() + xlim(0,8000)
+p4 <- dat %>% ggplot(aes(Intensity_IntegratedIntensity_OrigDRCH)) + geom_density() + xlim(0,2500)
+
+multiplot(p1,p2,p3,p4, cols = 2)
+
+n1 <- nrow(dat)
+
+dat %<>% 
+  filter(Intensity_IntegratedIntensity_OrigBCH > 10 & Intensity_IntegratedIntensity_OrigBCH < 12000)
+n2 <- nrow(dat)
+
+n1
+n2
+
+cells_filtered <- (n1-n2)*100/n1
+
+sprintf("Percentage of cells filtered out: %s", cells_filtered)
+
+
+p1 <- dat %>% ggplot(aes(Intensity_IntegratedIntensity_OrigBCH)) + geom_density() + xlim(0,12000)
+p2 <- dat %>% ggplot(aes(Intensity_IntegratedIntensity_OrigGCH)) + geom_density() + xlim(0,5000)
+p3 <- dat %>% ggplot(aes(Intensity_IntegratedIntensity_OrigRCH)) + geom_density() + xlim(0,8000)
+p4 <- dat %>% ggplot(aes(Intensity_IntegratedIntensity_OrigDRCH)) + geom_density() + xlim(0,2500)
+
+
+multiplot(p1,p2,p3,p4, cols = 2)
+
+```
+
+
+# plot the data - FINAL PLOTS - BCG
+
+```{r, message=FALSE, eval=fit_plots}
+
+
+p1 <- ggplot(dat,
+         aes(
+           x = Metadata_InfStatus,
+           y = (Intensity_IntegratedIntensity_OrigRCH),
+           color = Metadata_InfStatus)) + ylim(0,5000) +
+  facet_grid(~ Metadata_Treatment) +
+  geom_boxplot(outlier.shape = NA)+
+  labs(
+    title="Lysotracker positive vesicles intensity at 02 hpi in BCG",
+    y="Whole Cell Int-Intensity of Lysotracker positive vesicles",
+    x="COMPOUND TREATMENT")
+
+
+
+p2 <- ggplot(dat,
+         aes(
+           x = Metadata_InfStatus,
+           y = Intensity_IntegratedIntensity_OrigRCH,
+           color = Metadata_InfStatus)) + ylim(0,5000) +
+  facet_grid(~ Metadata_Treatment) +
+  geom_violin() +
+  geom_dotplot(binaxis = "y", stackdir = "center", binwidth = 20) + 
+  labs(
+    title="Lysotracker positive vesicles intensity at 02 hpi in BCG",
+    y="Whole Cell Int-Intensity of Lysotracker positive vesicles",
+    x="COMPOUND TREATMENT")
+
+
+p3 <- ggplot(dat,
+         aes(
+           x = Metadata_InfStatus,
+           y = (Children_RCH_Count),
+           color = Metadata_InfStatus)) + ylim(0,120) +
+  facet_grid(~ Metadata_Treatment) +
+  geom_boxplot(outlier.shape = NA)+
+  labs(
+    title="Lysotracker positive vesicles count at 02 hpi in BCG",
+    y="Count of Lysotracker positive vesicles",
+    x="COMPOUND TREATMENT")
+
+
+
+p4 <- ggplot(dat,
+         aes(
+           x = Metadata_InfStatus,
+           y = Children_RCH_Count,
+           color = Metadata_InfStatus)) + ylim(0,100) +
+  facet_grid(~ Metadata_Treatment) +
+  geom_violin() +
+  geom_dotplot(binaxis = "y", stackdir = "center", binwidth = 0.2) + 
+  labs(
+    title="Lysotracker positive vesicles count at 02 hpi in BCG",
+    y="Count of Lysotracker positive vesicles",
+    x="COMPOUND TREATMENT")
+
+multiplot(p1,p2,p3,p4, cols = 2)
+
+
+
+p1 <- ggplot(dat,
+         aes(
+           x = Metadata_InfStatus,
+           y = (Intensity_IntegratedIntensity_OrigDRCH),
+           color = Metadata_InfStatus)) + ylim(0,2200) +
+  facet_grid(~ Metadata_Treatment) +
+  geom_boxplot(outlier.shape = NA)+
+  labs(
+    title="Tfn positive vesicles intensity at 02 hpi in BCG",
+    y="Whole Cell Int-Intensity of Tfn positive vesicles",
+    x="COMPOUND TREATMENT")
+
+p2 <- ggplot(dat,
+         aes(
+           x = Metadata_InfStatus,
+           y = Intensity_IntegratedIntensity_OrigDRCH,
+           color = Metadata_InfStatus)) + ylim(0,2200) +
+  facet_grid(~ Metadata_Treatment) +
+  geom_violin() +
+  geom_dotplot(binaxis = "y", stackdir = "center", binwidth = 10) + 
+  labs(
+    title="Tfn positive vesicles intensity at 02 hpi in BCG",
+    y="Whole Cell Int-Intensity of Tfn positive vesicles",
+    x="COMPOUND TREATMENT")
+
+
+p3 <- ggplot(dat,
+         aes(
+           x = Metadata_InfStatus,
+           y = (Children_DRCH_Count),
+           color = Metadata_InfStatus)) + ylim(0,150) +
+  facet_grid(~ Metadata_Treatment) +
+  geom_boxplot(outlier.shape = NA)+
+  labs(
+    title="Tfn positive vesicles count at 02 hpi in BCG",
+    y="Count of Tfn positive vesicles",
+    x="COMPOUND TREATMENT")
+
+p4 <- ggplot(dat,
+         aes(
+           x = Metadata_InfStatus,
+           y = Children_DRCH_Count,
+           color = Metadata_InfStatus)) + ylim(0,150) +
+  facet_grid(~ Metadata_Treatment) +
+  geom_violin() +
+  geom_dotplot(binaxis = "y", stackdir = "center", binwidth = 0.5) + 
+  labs(
+    title="Tfn positive vesicles count at 02 hpi in BCG",
+    y="Count of Tfn positive vesicles",
+    x="COMPOUND TREATMENT")
+
+multiplot(p1,p2,p3,p4, cols = 2)
+
+
+
+
+p1 <- dat %>% filter(dat$Metadata_Treatment == "DMSO") %>% ggplot(aes(Intensity_IntegratedIntensity_OrigDRCH)) + geom_density(aes(color=factor(Metadata_InfStatus), fill=factor(Metadata_InfStatus)), size=1, alpha=.1) + xlim(-2000,5000) + labs(title="Tfn positive vesicles intensity at 02 hpi in BCG") + facet_grid(~ Metadata_Treatment)
+
+p2 <- dat %>% filter(dat$Metadata_Treatment == "C23") %>% ggplot(aes(Intensity_IntegratedIntensity_OrigDRCH)) + geom_density(aes(color=factor(Metadata_InfStatus), fill=factor(Metadata_InfStatus)), size=1, alpha=.1) + xlim(-2000,5000) + labs(title="Tfn positive vesicles intensity at 02 hpi in BCG") + facet_grid(~ Metadata_Treatment)
+
+p3 <- dat %>% filter(dat$Metadata_Treatment == "C1") %>% ggplot(aes(Intensity_IntegratedIntensity_OrigDRCH)) + geom_density(aes(color=factor(Metadata_InfStatus), fill=factor(Metadata_InfStatus)), size=1, alpha=.1) + xlim(-2000,5000) + labs(title="Tfn positive vesicles intensity at 02 hpi in BCG") + facet_grid(~ Metadata_Treatment)
+
+p4 <- dat %>% filter(dat$Metadata_Treatment == "C16") %>% ggplot(aes(Intensity_IntegratedIntensity_OrigDRCH)) + geom_density(aes(color=factor(Metadata_InfStatus), fill=factor(Metadata_InfStatus)), size=1, alpha=.1) + xlim(-2000,5000) + labs(title="Tfn positive vesicles intensity at 02 hpi in BCG") + facet_grid(~ Metadata_Treatment)
+
+multiplot(p1,p2,p3,p4, cols = 2)
+
+
+p1 <- dat %>% filter(dat$Metadata_Treatment == "DMSO") %>% ggplot(aes(Children_DRCH_Count)) + geom_density(aes(color=factor(Metadata_InfStatus), fill=factor(Metadata_InfStatus)), size=1, alpha=.1, adjust = 1.8) + xlim(-100,500) + labs(title="Tfn positive vesicles count at 02 hpi in BCG")
+
+
+
+multiplot(p1,p2,p3,p4, cols = 2)
+
+
+p1 <- dat %>% filter(dat$Metadata_Treatment == "DMSO") %>% ggplot(aes(Intensity_IntegratedIntensity_OrigRCH)) + geom_density(aes(color=factor(Metadata_InfStatus), fill=factor(Metadata_InfStatus)), size=1, alpha=.1, adjust = 1.8) + xlim(-2000,10000)+ labs(title="Lysotracker positive vesicles intensity at 02 hpi in BCG") + facet_grid(~ Metadata_Treatment)
+
+p2 <- dat %>% filter(dat$Metadata_Treatment == "C23") %>% ggplot(aes(Intensity_IntegratedIntensity_OrigRCH)) + geom_density(aes(color=factor(Metadata_InfStatus), fill=factor(Metadata_InfStatus)), size=1, alpha=.1, adjust = 1.8) + xlim(-2000,10000)+ labs(title="Lysotracker positive vesicles intensity at 02 hpi in BCG") + facet_grid(~ Metadata_Treatment)
+
+p3 <- dat %>% filter(dat$Metadata_Treatment == "C1") %>% ggplot(aes(Intensity_IntegratedIntensity_OrigRCH)) + geom_density(aes(color=factor(Metadata_InfStatus), fill=factor(Metadata_InfStatus)), size=1, alpha=.1, adjust = 1.8) + xlim(-2000,10000)+ labs(title="Lysotracker positive vesicles intensity at 02 hpi in BCG") + facet_grid(~ Metadata_Treatment)
+
+p4 <- dat %>% filter(dat$Metadata_Treatment == "C16") %>% ggplot(aes(Intensity_IntegratedIntensity_OrigRCH)) + geom_density(aes(color=factor(Metadata_InfStatus), fill=factor(Metadata_InfStatus)), size=1, alpha=.1, adjust = 1.8) + xlim(-2000,10000)+ labs(title="Lysotracker positive vesicles intensity at 02 hpi in BCG") + facet_grid(~ Metadata_Treatment)
+
+multiplot(p1,p2,p3,p4, cols = 2)
+ 
+
+
+ 
+p1 <- dat %>% filter(dat$Metadata_Treatment == "DMSO") %>% ggplot(aes(Children_RCH_Count)) + geom_freqpoly(aes(color=factor(Metadata_InfStatus), fill=factor(Metadata_InfStatus)), size=1, alpha=1) + labs(title="Lysotracker positive vesicles count at 02 hpi in BCG") + facet_grid(~ Metadata_Treatment)
+
+ 
+p2 <- dat %>% filter(dat$Metadata_Treatment == "C23") %>% ggplot(aes(Children_RCH_Count)) + geom_freqpoly(aes(color=factor(Metadata_InfStatus), fill=factor(Metadata_InfStatus)), size=1, alpha=1) + labs(title="Lysotracker positive vesicles count at 02 hpi in BCG") + facet_grid(~ Metadata_Treatment)
+
+ 
+p3 <- dat %>% filter(dat$Metadata_Treatment == "C1") %>% ggplot(aes(Children_RCH_Count)) + geom_freqpoly(aes(color=factor(Metadata_InfStatus), fill=factor(Metadata_InfStatus)), size=1, alpha=1) + labs(title="Lysotracker positive vesicles count at 02 hpi in BCG") + facet_grid(~ Metadata_Treatment)
+
+ 
+p4 <- dat %>% filter(dat$Metadata_Treatment == "C16") %>% ggplot(aes(Children_RCH_Count)) + geom_freqpoly(aes(color=factor(Metadata_InfStatus), fill=factor(Metadata_InfStatus)), size=1, alpha=1) + labs(title="Lysotracker positive vesicles count at 02 hpi in BCG") + facet_grid(~ Metadata_Treatment)
+
+
+multiplot(p1,p2,p3,p4, cols = 2)
+
+
+p1 <- dat %>% filter(dat$Metadata_InfStatus == "Inf") %>% ggplot(aes(Children_RCH_Count)) + geom_freqpoly(aes(color=factor(Metadata_Treatment), fill=factor(Metadata_Treatment)), size=1, alpha=1) + labs(title="Lysotracker positive vesicles count at 02 hpi in BCG") + facet_grid(~ Metadata_InfStatus)
+
+p2 <- dat %>% filter(dat$Metadata_InfStatus == "Bystander") %>% ggplot(aes(Children_RCH_Count)) + geom_freqpoly(aes(color=factor(Metadata_Treatment), fill=factor(Metadata_Treatment)), size=1, alpha=1) + labs(title="Lysotracker positive vesicles count at 02 hpi in BCG") + facet_grid(~ Metadata_InfStatus)
+
+p3 <- dat %>% filter(dat$Metadata_InfStatus == "Unexp") %>% ggplot(aes(Children_RCH_Count)) + geom_freqpoly(aes(color=factor(Metadata_Treatment), fill=factor(Metadata_Treatment)), size=1, alpha=1) + labs(title="Lysotracker positive vesicles count at 02 hpi in BCG") + facet_grid(~ Metadata_InfStatus)
+
+
+multiplot(p1,p2,p3, cols = 2)
+
+
+p1 <- dat %>% filter(dat$Metadata_InfStatus == "Inf") %>% ggplot(aes(Children_RCH_Count)) + geom_density(aes(color=factor(Metadata_Treatment), fill=factor(Metadata_Treatment)), size=1, alpha=0.1) + xlim(-20,120) + labs(title="Lysotracker positive vesicles count at 02 hpi in BCG") + facet_grid(~ Metadata_InfStatus)
+
+p2 <- dat %>% filter(dat$Metadata_InfStatus == "Bystander") %>% ggplot(aes(Children_RCH_Count)) + geom_density(aes(color=factor(Metadata_Treatment), fill=factor(Metadata_Treatment)), size=1, alpha=0.1) + xlim(-20,120) + labs(title="Lysotracker positive vesicles count at 02 hpi in BCG") + facet_grid(~ Metadata_InfStatus)
+
+p3 <- dat %>% filter(dat$Metadata_InfStatus == "Unexp") %>% ggplot(aes(Children_RCH_Count)) + geom_density(aes(color=factor(Metadata_Treatment), fill=factor(Metadata_Treatment)), size=1, alpha=0.1) + xlim(-20,120) + labs(title="Lysotracker positive vesicles count at 02 hpi in BCG") + facet_grid(~ Metadata_InfStatus)
+
+
+
+multiplot(p1,p2,p3, cols = 1)
+
+```
+
+
+
+# plot the data - FINAL PLOTS - BCG - scatter plots
+
+```{r, message=FALSE, eval=fit_plots}
+
+
+p1 <- ggplot(dat %>% filter(Metadata_InfStatus != "Unexp" & Metadata_Treatment != "C23" & Metadata_Treatment != "C1"),
+         aes(
+           x = log(Intensity_IntegratedIntensity_OrigDRCH),
+           y = log(Intensity_IntegratedIntensity_OrigGCH), color = Metadata_Treatment)) + 
+  geom_point(aes(), size =1.5) +xlim(-10,25) +ylim(-10,25) + scale_color_manual(values = c("black", "red"))+
+  labs(
+    title="Tfn per cell intensity vs BCG per cell intensity for Compound C16 compared to DMSO",
+    y="log transformed per cell bacterial intensity",
+    x="log transformed per cell transferrin intensity")
+
+
+p2 <- ggplot(dat %>% filter(Metadata_InfStatus != "Unexp" & Metadata_Treatment != "C23" & Metadata_Treatment != "C16"),
+         aes(
+           x = log(Intensity_IntegratedIntensity_OrigDRCH),
+           y = log(Intensity_IntegratedIntensity_OrigGCH), color = Metadata_Treatment)) + 
+  geom_point(aes(), size =1.5) +xlim(-10,25) +ylim(-10,25) + scale_color_manual(values = c("black", "red"))+
+  labs(
+    title="Tfn per cell intensity vs BCG per cell intensity for Compound C1 compared to DMSO",
+    y="log transformed per cell bacterial intensity",
+    x="log transformed per cell transferrin intensity")
+
+
+p3 <- ggplot(dat %>% filter(Metadata_InfStatus != "Unexp" & Metadata_Treatment != "C1" & Metadata_Treatment != "C16"),
+         aes(
+           x = log(Intensity_IntegratedIntensity_OrigDRCH),
+           y = log(Intensity_IntegratedIntensity_OrigGCH), color = Metadata_Treatment)) + 
+  geom_point(aes(), size =1.5) +xlim(-10,25) +ylim(-10,25) + scale_color_manual(values = c("black", "red"))+
+  labs(
+    title="Tfn per cell intensity vs BCG per cell intensity for Compound C23 compared to DMSO",
+    y="log transformed per cell bacterial intensity",
+    x="log transformed per cell transferrin intensity")
+
+multiplot(p1,p2,p3, cols = 2)
+
+
+p1 <- ggplot(dat %>% filter(Metadata_InfStatus != "Unexp" & Metadata_Treatment != "C23" & Metadata_Treatment != "C1"),
+         aes(
+           x = log(Intensity_IntegratedIntensity_OrigRCH),
+           y = log(Intensity_IntegratedIntensity_OrigGCH), color = Metadata_Treatment)) + 
+  geom_point(aes(), size =1.5) +xlim(-10,25) +ylim(-10,25) + scale_color_manual(values = c("black", "red"))+
+  labs(
+    title="Lysotracker per cell intensity vs BCG per cell intensity for Compound C16 compared to DMSO",
+    y="log transformed per cell bacterial intensity",
+    x="log transformed per cell lysotracker intensity")
+
+
+p2 <- ggplot(dat %>% filter(Metadata_InfStatus != "Unexp" & Metadata_Treatment != "C23" & Metadata_Treatment != "C16"),
+         aes(
+           x = log(Intensity_IntegratedIntensity_OrigRCH),
+           y = log(Intensity_IntegratedIntensity_OrigGCH), color = Metadata_Treatment)) + 
+  geom_point(aes(), size =1.5) +xlim(-10,25) +ylim(-10,25) + scale_color_manual(values = c("black", "red"))+
+  labs(
+    title="Lysotracker per cell intensity vs BCG per cell intensity for Compound C1 compared to DMSO",
+    y="log transformed per cell bacterial intensity",
+    x="log transformed per cell lysotracker intensity")
+
+
+p3 <- ggplot(dat %>% filter(Metadata_InfStatus != "Unexp" & Metadata_Treatment != "C1" & Metadata_Treatment != "C16"),
+         aes(
+           x = log(Intensity_IntegratedIntensity_OrigRCH),
+           y = log(Intensity_IntegratedIntensity_OrigGCH), color = Metadata_Treatment)) + 
+  geom_point(aes(), size =1.5) +xlim(-10,25) +ylim(-10,25) + scale_color_manual(values = c("black", "red"))+
+  labs(
+    title="Lysotracker per cell intensity vs BCG per cell intensity for Compound C23 compared to DMSO",
+    y="log transformed per cell bacterial intensity",
+    x="log transformed per cell lysotracker intensity")
+
+multiplot(p1,p2,p3, cols = 2)
+
+
+
+```
+
+# binned intensity plots on basis og GCH-BCG
+
+```{r, message=FALSE, eval=fit_plots}
+
+
+dat %>% ggplot(aes(Children_GCH_Count)) + geom_density()
+dat %>% ggplot(aes(Children_GCH_Count)) + geom_freqpoly()
+
+
+
+
+dat1 <- filter(dat, Children_GCH_Count > 0 & Children_GCH_Count < 5)
+
+dat2 <- filter(dat, Children_GCH_Count > 5 & Children_GCH_Count < 25)
+
+dat3 <- filter(dat, Children_GCH_Count > 25 & Children_GCH_Count < 50)
+
+dat4 <- filter(dat, Children_GCH_Count > 50)
+
+
+
+
+p1 <- ggplot(dat1,
+         aes(
+           x = Metadata_InfStatus,
+           y = (Children_RCH_Count),
+           color = Metadata_InfStatus)) + 
+  facet_grid(~ Metadata_Treatment) +
+  geom_boxplot(outlier.shape = NA)+
+  labs(
+    title="Lysotracker positive vesicles count at 02 hpi in BCG",
+    y="Count of Lysotracker positive vesicles in bin 1",
+    x="COMPOUND TREATMENT")
+
+
+p2 <- ggplot(dat2,
+         aes(
+           x = Metadata_InfStatus,
+           y = (Children_RCH_Count),
+           color = Metadata_InfStatus)) + 
+  facet_grid(~ Metadata_Treatment) +
+  geom_boxplot(outlier.shape = NA)+
+  labs(
+    title="Lysotracker positive vesicles count at 02 hpi in BCG",
+    y="Count of Lysotracker positive vesicles in bin 2",
+    x="COMPOUND TREATMENT")
+
+
+p3 <- ggplot(dat3,
+         aes(
+           x = Metadata_InfStatus,
+           y = (Children_RCH_Count),
+           color = Metadata_InfStatus)) + 
+  facet_grid(~ Metadata_Treatment) +
+  geom_boxplot(outlier.shape = NA)+
+  labs(
+    title="Lysotracker positive vesicles count at 02 hpi in BCG",
+    y="Count of Lysotracker positive vesicles in bin 3",
+    x="COMPOUND TREATMENT")
+
+p4 <- ggplot(dat4,
+         aes(
+           x = Metadata_InfStatus,
+           y = (Children_RCH_Count),
+           color = Metadata_InfStatus)) + 
+  facet_grid(~ Metadata_Treatment) +
+  geom_boxplot(outlier.shape = NA)+
+  labs(
+    title="Lysotracker positive vesicles count at 02 hpi in BCG",
+    y="Count of Lysotracker positive vesicles in bin 4",
+    x="COMPOUND TREATMENT")
+
+multiplot(p1,p2,p3,p4, cols=2)
+
+
+
+#######
+
+p1 <- ggplot(dat1,
+         aes(
+           x = Metadata_InfStatus,
+           y = (Intensity_IntegratedIntensity_OrigRCH),
+           color = Metadata_InfStatus)) +
+  facet_grid(~ Metadata_Treatment) + 
+  geom_boxplot(outlier.shape = NA)+
+  labs(
+    title="Lysotracker positive vesicles intensity at 02 hpi in BCG",
+    y="Whole Cell Int-Intensity of Lysotracker positive vesicles in bin 1",
+    x="COMPOUND TREATMENT")
+
+
+p2 <- ggplot(dat2,
+         aes(
+           x = Metadata_InfStatus,
+           y = (Intensity_IntegratedIntensity_OrigRCH),
+           color = Metadata_InfStatus)) +
+  facet_grid(~ Metadata_Treatment) + 
+  geom_boxplot(outlier.shape = NA)+
+  labs(
+    title="Lysotracker positive vesicles intensity at 02 hpi in BCG",
+    y="Whole Cell Int-Intensity of Lysotracker positive vesicles in bin 2",
+    x="COMPOUND TREATMENT")
+
+
+p3 <- ggplot(dat3 ,
+         aes(
+           x = Metadata_InfStatus,
+           y = (Intensity_IntegratedIntensity_OrigRCH),
+           color = Metadata_InfStatus)) +
+  facet_grid(~ Metadata_Treatment) + 
+  geom_boxplot(outlier.shape = NA)+
+  labs(
+    title="Lysotracker positive vesicles intensity at 02 hpi in BCG",
+    y="Whole Cell Int-Intensity of Lysotracker positive vesicles in bin 3",
+    x="COMPOUND TREATMENT")
+
+
+p4 <- ggplot(dat4,
+         aes(
+           x = Metadata_InfStatus,
+           y = (Intensity_IntegratedIntensity_OrigRCH),
+           color = Metadata_InfStatus)) +
+  facet_grid(~ Metadata_Treatment) +  
+  geom_boxplot(outlier.shape = NA)+
+  labs(
+    title="Lysotracker positive vesicles intensity at 02 hpi in BCG",
+    y="Whole Cell Int-Intensity of Lysotracker positive vesicles in bin 4",
+    x="COMPOUND TREATMENT")
+
+multiplot(p1,p2,p3,p4, cols=2)
+
+
+```
+
+
+
+# binned intensity plots on basis og RCH-lysotracker
+
+```{r, message=FALSE, eval=fit_plots}
+
+
+dat %>% ggplot(aes(Children_RCH_Count)) + geom_density()
+dat %>% ggplot(aes(Children_RCH_Count)) + geom_freqpoly()
+
+
+
+
+dat1 <- filter(dat, Children_RCH_Count > 0 & Children_RCH_Count < 5)
+
+dat2 <- filter(dat, Children_RCH_Count > 5 & Children_RCH_Count < 25)
+
+dat3 <- filter(dat, Children_RCH_Count > 25 & Children_RCH_Count < 50)
+
+dat4 <- filter(dat, Children_RCH_Count > 50)
+
+
+
+
+p1 <- ggplot(dat1 %>% filter(Metadata_InfStatus == "Inf"),
+         aes(
+           x = Metadata_InfStatus,
+           y = (Children_GCH_Count),
+           color = Metadata_InfStatus)) + 
+  facet_grid(~ Metadata_Treatment) +
+  geom_boxplot(outlier.shape = NA)+
+  labs(
+    title="BCG count at 02 hpi in lysotracker positive vesicles",
+    y="Count of BCG in bin 1",
+    x="COMPOUND TREATMENT")
+
+
+p2 <- ggplot(dat2 %>% filter(Metadata_InfStatus == "Inf"),
+         aes(
+           x = Metadata_InfStatus,
+           y = (Children_GCH_Count),
+           color = Metadata_InfStatus)) + 
+  facet_grid(~ Metadata_Treatment) +
+  geom_boxplot(outlier.shape = NA)+
+  labs(
+    title="BCG count at 02 hpi in lysotracker positive vesicles",
+    y="Count of BCG in bin 2",
+    x="COMPOUND TREATMENT")
+
+
+p3 <- ggplot(dat3 %>% filter(Metadata_InfStatus == "Inf"),
+         aes(
+           x = Metadata_InfStatus,
+           y = (Children_GCH_Count),
+           color = Metadata_InfStatus)) + 
+  facet_grid(~ Metadata_Treatment) +
+  geom_boxplot(outlier.shape = NA)+
+  labs(
+    title="BCG count at 02 hpi in lysotracker positive vesicles",
+    y="Count of BCG in bin 3",
+    x="COMPOUND TREATMENT")
+
+p4 <- ggplot(dat4 %>% filter(Metadata_InfStatus == "Inf"),
+         aes(
+           x = Metadata_InfStatus,
+           y = (Children_GCH_Count),
+           color = Metadata_InfStatus)) + 
+  facet_grid(~ Metadata_Treatment) +
+  geom_boxplot(outlier.shape = NA)+
+  labs(
+    title="BCG count at 02 hpi in lysotracker positive vesicles",
+    y="Count of BCG in bin 4",
+    x="COMPOUND TREATMENT")
+
+
+multiplot(p1,p2,p3,p4, cols=2)
+
+
+#######
+
+p1 <- ggplot(dat1 %>% filter(Metadata_InfStatus == "Inf"),
+         aes(
+           x = Metadata_InfStatus,
+           y = (Intensity_IntegratedIntensity_OrigGCH),
+           color = Metadata_InfStatus)) +
+  facet_grid(~ Metadata_Treatment) + 
+  geom_boxplot(outlier.shape = NA)+
+  labs(
+    title="BCG intensity at 02 hpi in lysotracker positive vesicles",
+    y="Whole Cell Int-Intensity of BCG in bin 1",
+    x="COMPOUND TREATMENT")
+
+
+p2 <- ggplot(dat2 %>% filter(Metadata_InfStatus == "Inf"),
+         aes(
+           x = Metadata_InfStatus,
+           y = (Intensity_IntegratedIntensity_OrigGCH),
+           color = Metadata_InfStatus)) +
+  facet_grid(~ Metadata_Treatment) + 
+  geom_boxplot(outlier.shape = NA)+
+  labs(
+    title="BCG intensity at 02 hpi in lysotracker positive vesicles",
+    y="Whole Cell Int-Intensity of BCG in bin 2",
+    x="COMPOUND TREATMENT")
+
+
+p3 <- ggplot(dat3 %>% filter(Metadata_InfStatus == "Inf") ,
+         aes(
+           x = Metadata_InfStatus,
+           y = (Intensity_IntegratedIntensity_OrigGCH),
+           color = Metadata_InfStatus)) +
+  facet_grid(~ Metadata_Treatment) + 
+  geom_boxplot(outlier.shape = NA)+
+  labs(
+    title="BCG intensity at 02 hpi in lysotracker positive vesicles",
+    y="Whole Cell Int-Intensity of BCG in bin 3",
+    x="COMPOUND TREATMENT")
+
+
+p4 <- ggplot(dat4 %>% filter(Metadata_InfStatus == "Inf"),
+         aes(
+           x = Metadata_InfStatus,
+           y = (Intensity_IntegratedIntensity_OrigGCH),
+           color = Metadata_InfStatus)) +
+  facet_grid(~ Metadata_Treatment) +  
+  geom_boxplot(outlier.shape = NA)+
+  labs(
+    title="BCG intensity at 02 hpi in lysotracker positive vesicles",
+    y="Whole Cell Int-Intensity of BCG in bin 4",
+    x="COMPOUND TREATMENT")
+
+
+multiplot(p1,p2,p3,p4, cols=2)
+
+

@@ -1,0 +1,116 @@
+---
+title: "201706_mtsassay"
+author: "MANISHA"
+date: "June 12, 2017"
+output: 
+    html_document: 
+        code_folding: hide
+        fig_caption: yes
+        fig_height: 8
+        fig_width: 12
+        fontsize: 10pt
+        toc_float: 
+        collapsed: false    
+        smooth_scroll: FALSE
+---
+
+# Load the config
+
+In this file there is experiment that is analysed.
+- MTS ASSAY- Tecan reader
+
+
+This experiments was performed by Manisha in Tecan reader to check the cytotoxic effects of 11 compounds (test+rifampicin+dmso) at 3 different doses - 10uM, 50uM, 100uM on THP1 macxrophages.
+
+```{r, eval=TRUE, message=FALSE, warning=FALSE}
+library(magrittr)
+library(dplyr)
+library(ggplot2)
+source("R/ggtheme_jack.R")
+source("R/fun_multiplot.R")
+ggplot2::theme_set(theme_jack())
+
+stats_mean <- "TRUE"
+fit_plots <- "TRUE"
+
+base_path <- c("../../../data")
+
+exp_name <- c("20170612_THP1_MTSAssay_BGScreen_Doses_10_50_100uM")
+
+
+dat <- readr::read_csv(sprintf("%s/%s.csv",base_path, exp_name))
+
+
+
+```
+
+
+# plot the data
+
+```{r, message=FALSE, eval=stats_mean}
+
+feat_cols <- dat %>% select(-contains("Metadata")) %>% names()
+
+
+dat_mean <-
+  dat %>%
+  group_by(
+    Metadata_Compound,
+    Metadata_Dose) %>%
+  dplyr::summarize_each_(funs(mean(., na.rm=TRUE)),
+                         vars = feat_cols)
+
+
+
+dat_sd <-
+  dat %>%
+  group_by(
+    Metadata_Compound,
+    Metadata_Dose) %>%
+  dplyr::summarize_each_(funs(sd(., na.rm=TRUE)),
+                         vars = feat_cols)
+
+colnames(dat_mean) = c("Metadata_Compound", "Metadata_Dose", "Mean_Absorbance")
+
+colnames(dat_sd) = c("Metadata_Compound", "Metadata_Dose", "Std_Absorbance")
+
+dat1 <- cbind(dat_mean,dat_sd)
+dat1 <- dat1[, !duplicated(colnames(dat1))]
+
+
+```
+
+# plot the data
+
+```{r, message=FALSE, eval=fit_plots}
+
+
+pd <- position_dodge(0.1) # move them .05 to the left and right
+
+p1 <- ggplot(dat1 %>% filter(Metadata_Dose =="10"), 
+             aes(x=reorder(Metadata_Compound, Mean_Absorbance), y=Mean_Absorbance)) + 
+              geom_errorbar(aes(ymin=Mean_Absorbance-Std_Absorbance, 
+                    ymax=Mean_Absorbance+Std_Absorbance), width=.1, position=pd) + 
+              ylab("Cytotoxicity to cells") + xlab("Compound treatment") + 
+              geom_point(position=pd, size=3) + labs(title = "Cytotoxicity of compounds to THP1 at 10 uM")
+
+p2 <- ggplot(dat1 %>% filter(Metadata_Dose =="50"), 
+             aes(x=reorder(Metadata_Compound, Mean_Absorbance), y=Mean_Absorbance)) + 
+              geom_errorbar(aes(ymin=Mean_Absorbance-Std_Absorbance, 
+                    ymax=Mean_Absorbance+Std_Absorbance), width=.1, position=pd) + 
+              ylab("Cytotoxicity to cells") + xlab("Compound treatment") + 
+              geom_point(position=pd, size=3) + labs(title = "Cytotoxicity of compounds to THP1 at 50 uM")
+
+p3 <- ggplot(dat1 %>% filter(Metadata_Dose =="100"), 
+             aes(x=reorder(Metadata_Compound, Mean_Absorbance), y=Mean_Absorbance)) + 
+              geom_errorbar(aes(ymin=Mean_Absorbance-Std_Absorbance, 
+                    ymax=Mean_Absorbance+Std_Absorbance), width=.1, position=pd) + 
+              ylab("Cytotoxicity to cells") + xlab("Compound treatment") + 
+              geom_point(position=pd, size=3) + labs(title = "Cytotoxicity of compounds to THP1 at 100 uM") 
+
+
+multiplot(p1,p2,p3, cols = 2)
+
+```
+
+

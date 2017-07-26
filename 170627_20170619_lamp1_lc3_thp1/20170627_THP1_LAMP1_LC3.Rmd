@@ -1,0 +1,631 @@
+---
+title: "20170627_THP1_LAMP1_LC3"
+author: "MANISHA"
+date: "June 27, 2017"
+output: 
+    html_document: 
+        code_folding: hide
+        fig_caption: yes
+        fig_height: 8
+        fig_width: 12
+        fontsize: 10pt
+        toc_float: 
+        collapsed: false    
+        smooth_scroll: FALSE
+---
+
+# Load the config
+
+In this file there is experiment that is analysed.
+- IMAGING - Z - PERKIN ELMER
+
+
+This experiments was performed by Manisha in PE SPINNING DISC to check the  effects of 3 compounds (test+dmso) at 1 doses - 10uM & 1 timepoint - 48 hrs on THP1 macrophages upon infection - H37Ra, BCG, Smegmatis.
+
+```{r, eval=TRUE, message=FALSE, warning=FALSE}
+library(magrittr)
+library(dplyr)
+library(ggplot2)
+source("R/ggtheme_jack.R")
+source("R/fun_multiplot.R")
+ggplot2::theme_set(theme_jack())
+
+stats_mean <- "TRUE"
+filter_mean <- "TRUE"
+fit_plots <- "TRUE"
+
+base_path <- c("../../../data")
+
+exp_name <- c("170627_20170619_lamp1_lc3_thp1")
+
+
+dat <- readr::read_csv(sprintf("%s/%s.csv",base_path, exp_name))
+
+
+
+```
+
+
+# select the data
+
+```{r, message=FALSE, eval=stats_mean}
+
+
+dat %<>%
+  select(
+    contains("Metadata"),
+    contains("Children"),
+    contains("AreaShape_Area"),
+    contains("Intensity_IntegratedIntensity"),
+    contains("Object_Number")
+    )
+
+dat %<>% 
+  select(
+    -contains("Edge"), 
+    -contains("Frame"), 
+    -contains("Channel"),
+    -contains("Site"),
+    -contains("FileLocation"),
+    -contains("ColorFormat"),
+    -contains("Plate"),
+    -contains("Size")
+    )
+
+
+```
+
+
+# filter the data
+
+```{r, message=FALSE, eval=filter_mean}
+
+
+p1 <- dat %>% ggplot(aes(Intensity_IntegratedIntensity_OrigBCH)) + geom_density() + xlim(0,3000)
+p2 <- dat %>% ggplot(aes(Intensity_IntegratedIntensity_OrigGCH)) + geom_density() + xlim(0,2000)
+p3 <- dat %>% ggplot(aes(Intensity_IntegratedIntensity_OrigRCH)) + geom_density() + xlim(0,2000)
+p4 <- dat %>% ggplot(aes(Intensity_IntegratedIntensity_OrigDRCH)) + geom_density() + xlim(0,2000)
+
+multiplot(p1,p2,p3,p4, cols = 2)
+
+n1 <- nrow(dat)
+
+dat %<>% 
+  filter(Intensity_IntegratedIntensity_OrigBCH > 10 & Intensity_IntegratedIntensity_OrigBCH < 3000)
+n2 <- nrow(dat)
+
+n1
+n2
+
+cells_filtered <- (n1-n2)*100/n1
+
+sprintf("Percentage of cells filtered out: %s", cells_filtered)
+
+
+p1 <- dat %>% ggplot(aes(Intensity_IntegratedIntensity_OrigBCH)) + geom_density() + xlim(0,3000)
+p2 <- dat %>% ggplot(aes(Intensity_IntegratedIntensity_OrigGCH)) + geom_density() + xlim(0,2000)
+p3 <- dat %>% ggplot(aes(Intensity_IntegratedIntensity_OrigRCH)) + geom_density() + xlim(0,2000)
+p4 <- dat %>% ggplot(aes(Intensity_IntegratedIntensity_OrigDRCH)) + geom_density() + xlim(0,2000)
+
+
+multiplot(p1,p2,p3,p4, cols = 2)
+
+```
+
+# name to plot the data
+
+```{r, message=FALSE, eval=fit_plots}
+
+unique(dat$Children_GCH_Count)
+
+dat$Metadata_InfStatus[dat$Children_GCH_Count == 0] <-  "Uninf" 
+dat$Metadata_InfStatus[dat$Children_GCH_Count > 0] <-  "Inf" 
+
+unique(dat$Metadata_InfStatus)
+
+dat$Metadata_Status <- paste(dat$Metadata_Treatment, dat$Metadata_InfStatus, sep="_")
+
+unique(dat$Metadata_Status)
+
+```
+
+
+
+# plot the data - LC3 INTENSITY
+
+```{r, message=FALSE, eval=fit_plots}
+
+
+
+p1 <-
+  ggplot(dat %>% filter(Metadata_Infection == "bcg"),
+         aes(
+           x = Metadata_InfStatus,
+           y = (Intensity_IntegratedIntensity_OrigRCH),
+           color = Metadata_InfStatus)) + ylim(0,1000) +
+  geom_boxplot(outlier.shape = NA)+
+  facet_grid( ~ Metadata_Treatment) +
+  labs(
+    title="LC3 positive vesicles intensity at 48 hpi",
+    y="Whole Cell Int-Intensity of LC3 positive vesicles",
+    x="COMPOUND TREATMENT")
+
+p2 <- ggplot(dat %>% filter(Metadata_Infection == "ra"),
+         aes(
+           x = Metadata_InfStatus,
+           y = (Intensity_IntegratedIntensity_OrigRCH),
+           color = Metadata_InfStatus)) + ylim(0,1000) +
+  geom_boxplot(outlier.shape = NA)+
+  facet_grid( ~ Metadata_Treatment) +
+  labs(
+    title="LC3 positive vesicles intensity at 48 hpi",
+    y="Whole Cell Int-Intensity of LC3 positive vesicles",
+    x="COMPOUND TREATMENT")
+
+
+multiplot(p1,p2, cols = 1)
+
+```
+
+
+
+# plot the data - LC3 COUNT
+
+```{r, message=FALSE, eval=fit_plots}
+
+
+
+p1 <- ggplot(dat %>% filter(Metadata_Infection == "bcg"),
+         aes(
+           x = Metadata_InfStatus,
+           y = (Children_RCH_Count),
+           color = Metadata_InfStatus)) + ylim(0,100) +
+  geom_boxplot(outlier.shape = NA)+
+  facet_grid( ~ Metadata_Treatment) +
+  labs(
+    title="LC3 positive vesicles count at 48 hpi",
+    y="Count of LC3 positive vesicles",
+    x="COMPOUND TREATMENT")
+
+p2 <- ggplot(dat %>% filter(Metadata_Infection == "ra"),
+         aes(
+           x = Metadata_InfStatus,
+           y = (Children_RCH_Count),
+           color = Metadata_InfStatus)) + ylim(0,100) +
+  geom_boxplot(outlier.shape = NA)+
+  facet_grid( ~ Metadata_Treatment) +
+  labs(
+    title="LC3 positive vesicles count at 48 hpi",
+    y="Count of LC3 positive vesicles",
+    x="COMPOUND TREATMENT")
+
+
+multiplot(p1,p2, cols = 1)
+
+
+
+```
+
+
+
+# plot the data - LAMP1 INTENSITY
+
+```{r, message=FALSE, eval=fit_plots}
+
+
+p1 <- ggplot(dat %>% filter(Metadata_Infection == "bcg"),
+         aes(
+           x = Metadata_InfStatus,
+           y = (Intensity_IntegratedIntensity_OrigDRCH),
+           color = Metadata_InfStatus)) + ylim(0,1000) +
+  geom_boxplot(outlier.shape = NA)+
+  facet_grid( ~ Metadata_Treatment) +
+  labs(
+    title="LAMP1 positive vesicles intensity at 48 hpi",
+    y="Whole Cell Int-Intensity of LAMP1 positive vesicles",
+    x="COMPOUND TREATMENT")
+
+p2 <- ggplot(dat %>% filter(Metadata_Infection == "ra"),
+         aes(
+           x = Metadata_InfStatus,
+           y = (Intensity_IntegratedIntensity_OrigDRCH),
+           color = Metadata_InfStatus)) + ylim(0,1000) +
+  geom_boxplot(outlier.shape = NA)+
+  facet_grid( ~ Metadata_Treatment) +
+  labs(
+    title="LAMP1 positive vesicles intensity at 48 hpi",
+    y="Whole Cell Int-Intensity of LAMP1 positive vesicles",
+    x="COMPOUND TREATMENT")
+
+
+multiplot(p1,p2, cols = 1)
+
+
+
+```
+
+# plot the data - LAMP1 COUNT
+
+```{r, message=FALSE, eval=fit_plots}
+
+p1 <- ggplot(dat %>% filter(Metadata_Infection == "bcg"),
+         aes(
+           x = Metadata_InfStatus,
+           y = (Children_DRCH_Count),
+           color = Metadata_InfStatus)) + ylim(0,100) +
+  geom_boxplot(outlier.shape = NA)+
+  facet_grid( ~ Metadata_Treatment) +
+  labs(
+    title="LAMP1 positive vesicles count at 48 hpi",
+    y="Count of LAMP1 positive vesicles",
+    x="COMPOUND TREATMENT")
+
+p2 <- ggplot(dat %>% filter(Metadata_Infection == "ra"),
+         aes(
+           x = Metadata_InfStatus,
+           y = (Children_DRCH_Count),
+           color = Metadata_InfStatus)) + ylim(0,100) +
+  geom_boxplot(outlier.shape = NA)+
+  facet_grid( ~ Metadata_Treatment) +
+  labs(
+    title="LAMP1 positive vesicles count at 48 hpi",
+    y="Count of LAMP1 positive vesicles",
+    x="COMPOUND TREATMENT")
+
+
+multiplot(p1,p2, cols = 1)
+
+
+```
+
+# plot the data - FINAL PLOTS - BCG
+
+```{r, message=FALSE, eval=fit_plots}
+
+
+ggplot(dat %>% filter(Metadata_Infection == "bcg"),
+         aes(
+           x = Metadata_Status,
+           y = (Intensity_IntegratedIntensity_OrigRCH),
+           color = Metadata_InfStatus)) + ylim(0,2500) +
+  geom_boxplot(outlier.shape = NA)+
+  facet_grid( ~ Metadata_Infection) +
+  labs(
+    title="LC3 positive vesicles intensity at 48 hpi in BCG",
+    y="Whole Cell Int-Intensity of LC3 positive vesicles",
+    x="COMPOUND TREATMENT")
+
+
+ggplot(dat %>% filter(Metadata_Infection == "bcg"),
+         aes(
+           x = Metadata_Status,
+           y = (Children_RCH_Count),
+           color = Metadata_InfStatus)) + ylim(0,150) +
+  geom_boxplot(outlier.shape = NA)+
+  facet_grid( ~ Metadata_Infection) +
+  labs(
+    title="LC3 positive vesicles count at 48 hpi in BCG",
+    y="Count of LC3 positive vesicles",
+    x="COMPOUND TREATMENT")
+
+
+ggplot(dat %>% filter(Metadata_Infection == "bcg"),
+         aes(
+           x = Metadata_Status,
+           y = (Intensity_IntegratedIntensity_OrigDRCH),
+           color = Metadata_InfStatus)) + ylim(0,4000) +
+  geom_boxplot(outlier.shape = NA)+
+  facet_grid( ~ Metadata_Infection) +
+  labs(
+    title="LAMP1 positive vesicles intensity at 48 hpi in BCG",
+    y="Whole Cell Int-Intensity of LAMP1 positive vesicles",
+    x="COMPOUND TREATMENT")
+
+
+
+ggplot(dat %>% filter(Metadata_Infection == "bcg"),
+         aes(
+           x = Metadata_Status,
+           y = (Children_DRCH_Count),
+           color = Metadata_InfStatus)) + ylim(0,100) +
+  geom_boxplot(outlier.shape = NA)+
+  facet_grid( ~ Metadata_Infection) +
+  labs(
+    title="LAMP1 positive vesicles count at 48 hpi in BCG",
+    y="Count of LAMP1 positive vesicles",
+    x="COMPOUND TREATMENT")
+
+
+```
+
+# plot the data - FINAL PLOTS - H37Ra
+
+```{r, message=FALSE, eval=fit_plots}
+
+
+ggplot(dat %>% filter(Metadata_Infection == "ra"),
+         aes(
+           x = Metadata_Status,
+           y = (Intensity_IntegratedIntensity_OrigRCH),
+           color = Metadata_InfStatus)) + ylim(0,2500) +
+  geom_boxplot(outlier.shape = NA)+
+  facet_grid( ~ Metadata_Infection) +
+  labs(
+    title="LC3 positive vesicles intensity at 48 hpi in H37Ra",
+    y="Whole Cell Int-Intensity of LC3 positive vesicles",
+    x="COMPOUND TREATMENT")
+
+
+ggplot(dat %>% filter(Metadata_Infection == "ra"),
+         aes(
+           x = Metadata_Status,
+           y = (Children_RCH_Count),
+           color = Metadata_InfStatus)) + ylim(0,150) +
+  geom_boxplot(outlier.shape = NA)+
+  facet_grid( ~ Metadata_Infection) +
+  labs(
+    title="LC3 positive vesicles count at 48 hpi in H37Ra",
+    y="Count of LC3 positive vesicles",
+    x="COMPOUND TREATMENT")
+
+
+ggplot(dat %>% filter(Metadata_Infection == "ra"),
+         aes(
+           x = Metadata_Status,
+           y = (Intensity_IntegratedIntensity_OrigDRCH),
+           color = Metadata_InfStatus)) + ylim(0,4000) +
+  geom_boxplot(outlier.shape = NA)+
+  facet_grid( ~ Metadata_Infection) +
+  labs(
+    title="LAMP1 positive vesicles intensity at 48 hpi in H37Ra",
+    y="Whole Cell Int-Intensity of LAMP1 positive vesicles",
+    x="COMPOUND TREATMENT")
+
+
+
+ggplot(dat %>% filter(Metadata_Infection == "ra"),
+         aes(
+           x = Metadata_Status,
+           y = (Children_DRCH_Count),
+           color = Metadata_InfStatus)) + ylim(0,100) +
+  geom_boxplot(outlier.shape = NA)+
+  facet_grid( ~ Metadata_Infection) +
+  labs(
+    title="LAMP1 positive vesicles count at 48 hpi in H37Ra",
+    y="Count of LAMP1 positive vesicles",
+    x="COMPOUND TREATMENT")
+
+
+```
+
+
+
+```{r, eval = fit_plots}
+
+
+dat1 <- filter(dat, Intensity_IntegratedIntensity_OrigRCH > 0 & Intensity_IntegratedIntensity_OrigRCH < 250)
+
+dat2 <- filter(dat, Intensity_IntegratedIntensity_OrigRCH > 250 & Intensity_IntegratedIntensity_OrigRCH < 500)
+
+dat3 <- filter(dat, Intensity_IntegratedIntensity_OrigRCH > 500 & Intensity_IntegratedIntensity_OrigRCH < 750)
+
+dat4 <- filter(dat, Intensity_IntegratedIntensity_OrigRCH > 750 & Intensity_IntegratedIntensity_OrigRCH < 1000)
+
+
+
+
+ggplot(dat1 %>% filter(Metadata_Infection == "bcg"),
+         aes(
+           x = Metadata_Status,
+           y = (Children_DRCH_Count),
+           color = Metadata_InfStatus)) + ylim(0,25) +
+  geom_boxplot(outlier.shape = NA)+
+  facet_grid( ~ Metadata_Infection) +
+  labs(
+    title="LAMP1 positive vesicles count at 48 hpi in BCG",
+    y="Count of LAMP1 positive vesicles in bin 1",
+    x="COMPOUND TREATMENT")
+
+
+ggplot(dat2 %>% filter(Metadata_Infection == "bcg"),
+         aes(
+           x = Metadata_Status,
+           y = (Children_DRCH_Count),
+           color = Metadata_InfStatus)) + ylim(0,50) +
+  geom_boxplot(outlier.shape = NA)+
+  facet_grid( ~ Metadata_Infection) +
+  labs(
+    title="LAMP1 positive vesicles count at 48 hpi in BCG",
+    y="Count of LAMP1 positive vesicles in bin 2",
+    x="COMPOUND TREATMENT")
+
+
+ggplot(dat3 %>% filter(Metadata_Infection == "bcg"),
+         aes(
+           x = Metadata_Status,
+           y = (Children_DRCH_Count),
+           color = Metadata_InfStatus)) + ylim(0,80) +
+  geom_boxplot(outlier.shape = NA)+
+  facet_grid( ~ Metadata_Infection) +
+  labs(
+    title="LAMP1 positive vesicles count at 48 hpi in BCG",
+    y="Count of LAMP1 positive vesicles in bin 3",
+    x="COMPOUND TREATMENT")
+
+ggplot(dat4 %>% filter(Metadata_Infection == "bcg"),
+         aes(
+           x = Metadata_Status,
+           y = (Children_DRCH_Count),
+           color = Metadata_InfStatus)) + ylim(0,85) +
+  geom_boxplot(outlier.shape = NA)+
+  facet_grid( ~ Metadata_Infection) +
+  labs(
+    title="LAMP1 positive vesicles count at 48 hpi in BCG",
+    y="Count of LAMP1 positive vesicles in bin 4",
+    x="COMPOUND TREATMENT")
+
+#######
+
+ggplot(dat1 %>% filter(Metadata_Infection == "bcg"),
+         aes(
+           x = Metadata_Status,
+           y = (Intensity_IntegratedIntensity_OrigDRCH),
+           color = Metadata_InfStatus)) + ylim(0,1250) +
+  geom_boxplot(outlier.shape = NA)+
+  facet_grid( ~ Metadata_Infection) +
+  labs(
+    title="LAMP1 positive vesicles intensity at 48 hpi in BCG",
+    y="Whole Cell Int-Intensity of LAMP1 positive vesicles in bin 1",
+    x="COMPOUND TREATMENT")
+
+
+ggplot(dat2 %>% filter(Metadata_Infection == "bcg"),
+         aes(
+           x = Metadata_Status,
+           y = (Intensity_IntegratedIntensity_OrigDRCH),
+           color = Metadata_InfStatus)) + ylim(0,2500) +
+  geom_boxplot(outlier.shape = NA)+
+  facet_grid( ~ Metadata_Infection) +
+  labs(
+    title="LAMP1 positive vesicles intensity at 48 hpi in BCG",
+    y="Whole Cell Int-Intensity of LAMP1 positive vesicles in bin 2",
+    x="COMPOUND TREATMENT")
+
+
+ggplot(dat3 %>% filter(Metadata_Infection == "bcg"),
+         aes(
+           x = Metadata_Status,
+           y = (Intensity_IntegratedIntensity_OrigDRCH),
+           color = Metadata_InfStatus)) + 
+  geom_boxplot(outlier.shape = NA)+
+  facet_grid( ~ Metadata_Infection) +
+  labs(
+    title="LAMP1 positive vesicles intensity at 48 hpi in BCG",
+    y="Whole Cell Int-Intensity of LAMP1 positive vesicles in bin 3",
+    x="COMPOUND TREATMENT")
+
+
+ggplot(dat4 %>% filter(Metadata_Infection == "bcg"),
+         aes(
+           x = Metadata_Status,
+           y = (Intensity_IntegratedIntensity_OrigDRCH),
+           color = Metadata_InfStatus)) + 
+  geom_boxplot(outlier.shape = NA)+
+  facet_grid( ~ Metadata_Infection) +
+  labs(
+    title="LAMP1 positive vesicles intensity at 48 hpi in BCG",
+    y="Whole Cell Int-Intensity of LAMP1 positive vesicles in bin 4",
+    x="COMPOUND TREATMENT")
+
+
+
+########
+
+
+ggplot(dat1 %>% filter(Metadata_Infection == "ra"),
+         aes(
+           x = Metadata_Status,
+           y = (Children_DRCH_Count),
+           color = Metadata_InfStatus)) + ylim(0,25) +
+  geom_boxplot(outlier.shape = NA)+
+  facet_grid( ~ Metadata_Infection) +
+  labs(
+    title="LAMP1 positive vesicles count at 48 hpi in H37Ra",
+    y="Count of LAMP1 positive vesicles in bin 1",
+    x="COMPOUND TREATMENT")
+
+
+ggplot(dat2 %>% filter(Metadata_Infection == "ra"),
+         aes(
+           x = Metadata_Status,
+           y = (Children_DRCH_Count),
+           color = Metadata_InfStatus)) + ylim(0,50) +
+  geom_boxplot(outlier.shape = NA)+
+  facet_grid( ~ Metadata_Infection) +
+  labs(
+    title="LAMP1 positive vesicles count at 48 hpi in H37Ra",
+    y="Count of LAMP1 positive vesicles in bin 2",
+    x="COMPOUND TREATMENT")
+
+
+ggplot(dat3 %>% filter(Metadata_Infection == "ra"),
+         aes(
+           x = Metadata_Status,
+           y = (Children_DRCH_Count),
+           color = Metadata_InfStatus)) + ylim(0,80) +
+  geom_boxplot(outlier.shape = NA)+
+  facet_grid( ~ Metadata_Infection) +
+  labs(
+    title="LAMP1 positive vesicles count at 48 hpi in H37Ra",
+    y="Count of LAMP1 positive vesicles in bin 3",
+    x="COMPOUND TREATMENT")
+
+ggplot(dat4 %>% filter(Metadata_Infection == "ra"),
+         aes(
+           x = Metadata_Status,
+           y = (Children_DRCH_Count),
+           color = Metadata_InfStatus)) + ylim(0,85) +
+  geom_boxplot(outlier.shape = NA)+
+  facet_grid( ~ Metadata_Infection) +
+  labs(
+    title="LAMP1 positive vesicles count at 48 hpi in H37Ra",
+    y="Count of LAMP1 positive vesicles in bin 4",
+    x="COMPOUND TREATMENT")
+
+#######
+
+ggplot(dat1 %>% filter(Metadata_Infection == "ra"),
+         aes(
+           x = Metadata_Status,
+           y = (Intensity_IntegratedIntensity_OrigDRCH),
+           color = Metadata_InfStatus)) + ylim(0,1250) +
+  geom_boxplot(outlier.shape = NA)+
+  facet_grid( ~ Metadata_Infection) +
+  labs(
+    title="LAMP1 positive vesicles intensity at 48 hpi in H37Ra",
+    y="Whole Cell Int-Intensity of LAMP1 positive vesicles in bin 1",
+    x="COMPOUND TREATMENT")
+
+
+ggplot(dat2 %>% filter(Metadata_Infection == "ra"),
+         aes(
+           x = Metadata_Status,
+           y = (Intensity_IntegratedIntensity_OrigDRCH),
+           color = Metadata_InfStatus)) + ylim(0,2500) +
+  geom_boxplot(outlier.shape = NA)+
+  facet_grid( ~ Metadata_Infection) +
+  labs(
+    title="LAMP1 positive vesicles intensity at 48 hpi in H37Ra",
+    y="Whole Cell Int-Intensity of LAMP1 positive vesicles in bin 2",
+    x="COMPOUND TREATMENT")
+
+
+ggplot(dat3 %>% filter(Metadata_Infection == "ra"),
+         aes(
+           x = Metadata_Status,
+           y = (Intensity_IntegratedIntensity_OrigDRCH),
+           color = Metadata_InfStatus)) + 
+  geom_boxplot(outlier.shape = NA)+
+  facet_grid( ~ Metadata_Infection) +
+  labs(
+    title="LAMP1 positive vesicles intensity at 48 hpi in H37Ra",
+    y="Whole Cell Int-Intensity of LAMP1 positive vesicles in bin 3",
+    x="COMPOUND TREATMENT")
+
+
+ggplot(dat4 %>% filter(Metadata_Infection == "ra"),
+         aes(
+           x = Metadata_Status,
+           y = (Intensity_IntegratedIntensity_OrigDRCH),
+           color = Metadata_InfStatus)) + 
+  geom_boxplot(outlier.shape = NA)+
+  facet_grid( ~ Metadata_Infection) +
+  labs(
+    title="LAMP1 positive vesicles intensity at 48 hpi in H37Ra",
+    y="Whole Cell Int-Intensity of LAMP1 positive vesicles in bin 4",
+    x="COMPOUND TREATMENT")
+
+
+
+
+```

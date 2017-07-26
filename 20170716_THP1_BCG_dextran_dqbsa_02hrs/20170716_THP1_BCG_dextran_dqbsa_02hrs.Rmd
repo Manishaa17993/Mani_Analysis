@@ -1,0 +1,309 @@
+---
+title: "20170716_THP1_BCG_dextran_dqbsa_02hrs"
+author: "MANISHA"
+date: "July 17, 2017"
+output: 
+    html_document: 
+        code_folding: hide
+        fig_caption: yes
+        fig_height: 8
+        fig_width: 12
+        fontsize: 10pt
+        toc_float: 
+        collapsed: false    
+        smooth_scroll: FALSE
+---
+
+# Load the config
+
+In this file there is experiment that is analysed.
+- IMAGING - Z - PERKIN ELMER
+
+
+This experiments was performed by Manisha in PE SPINNING DISC to check the  effects of 3 compounds (test+dmso) at 1 doses - 10uM & 1 timepoint - 02 hrs on THP1 macrophages upon infection -  BCG.
+
+```{r, eval=TRUE, message=FALSE, warning=FALSE}
+library(magrittr)
+library(dplyr)
+library(ggplot2)
+source("R/ggtheme_jack.R")
+source("R/fun_multiplot.R")
+ggplot2::theme_set(theme_jack())
+
+stats_mean <- "TRUE"
+filter_mean <- "TRUE"
+fit_plots <- "TRUE"
+
+base_path <- c("../../../data")
+
+exp_name_file <- c("20170716_THP1_BCG_dextran_dqbsa_02hrs_Cells")
+exp_name_layout <- c("20170716_THP1_BCG_dextran_dqbsa_02hrs_layout")
+
+dat <- readr::read_csv(sprintf("%s/%s.csv",base_path, exp_name_file))
+
+
+dat_layout <- readr::read_csv(sprintf("%s/%s.csv",base_path, exp_name_layout))
+
+
+dat <- inner_join(dat,dat_layout, by = "Metadata_Series")
+
+
+```
+# name to plot the data
+
+```{r, message=FALSE, eval=fit_plots}
+
+unique(dat$Children_GCH_Count)
+
+dat$Metadata_InfStatus[dat$Metadata_Infection == "INF" & dat$Children_GCH_Count == 0] <-  "Bystander" 
+dat$Metadata_InfStatus[dat$Metadata_Infection == "INF" & dat$Children_GCH_Count > 0] <-  "Inf" 
+dat$Metadata_InfStatus[dat$Metadata_Infection == "UNINF" & dat$Children_GCH_Count == 0] <-  "Unexp"
+dat$Metadata_InfStatus[dat$Metadata_Infection == "UNINF" & dat$Children_GCH_Count > 0] <-  "Inf"
+
+unique(dat$Metadata_InfStatus)
+
+dat$Metadata_Status <- paste(dat$Metadata_Treatment, dat$Metadata_InfStatus, sep="_")
+
+unique(dat$Metadata_Status)
+
+```
+
+# select the data
+
+```{r, message=FALSE, eval=stats_mean}
+
+
+dat %<>%
+  select(
+    contains("Metadata"),
+    contains("Children"),
+    contains("AreaShape_Area"),
+    contains("Intensity_IntegratedIntensity"),
+    contains("Object_Number")
+    )
+
+dat %<>% 
+  select(
+    -contains("Edge"), 
+    -contains("Frame"), 
+    -contains("Channel"),
+    -contains("Site"),
+    -contains("FileLocation"),
+    -contains("ColorFormat"),
+    -contains("Plate"),
+    -contains("Size")
+    )
+
+
+```
+
+
+# filter the data
+
+```{r, message=FALSE, eval=filter_mean}
+
+
+p1 <- dat %>% ggplot(aes(Intensity_IntegratedIntensity_OrigBCH)) + geom_density() + xlim(0,10000)
+p2 <- dat %>% ggplot(aes(Intensity_IntegratedIntensity_OrigGCH)) + geom_density() + xlim(0,2000)
+p3 <- dat %>% ggplot(aes(Intensity_IntegratedIntensity_OrigRCH)) + geom_density() + xlim(0,6000)
+p4 <- dat %>% ggplot(aes(Intensity_IntegratedIntensity_OrigDRCH)) + geom_density() + xlim(0,2000)
+
+multiplot(p1,p2,p3,p4, cols = 2)
+
+n1 <- nrow(dat)
+
+dat %<>% 
+  filter(Intensity_IntegratedIntensity_OrigBCH > 100 & Intensity_IntegratedIntensity_OrigBCH < 7500)
+n2 <- nrow(dat)
+
+n1
+n2
+
+cells_filtered <- (n1-n2)*100/n1
+
+sprintf("Percentage of cells filtered out: %s", cells_filtered)
+
+
+p1 <- dat %>% ggplot(aes(Intensity_IntegratedIntensity_OrigBCH)) + geom_density() + xlim(0,10000)
+p2 <- dat %>% ggplot(aes(Intensity_IntegratedIntensity_OrigGCH)) + geom_density() + xlim(0,2000)
+p3 <- dat %>% ggplot(aes(Intensity_IntegratedIntensity_OrigRCH)) + geom_density() + xlim(0,6000)
+p4 <- dat %>% ggplot(aes(Intensity_IntegratedIntensity_OrigDRCH)) + geom_density() + xlim(0,2000)
+
+
+multiplot(p1,p2,p3,p4, cols = 2)
+
+```
+
+
+# plot the data - FINAL PLOTS - BCG
+
+```{r, message=FALSE, eval=fit_plots}
+
+
+ggplot(dat,
+         aes(
+           x = Metadata_Status,
+           y = (Intensity_IntegratedIntensity_OrigRCH),
+           color = Metadata_InfStatus)) + ylim(0,5000) +
+  geom_boxplot(outlier.shape = NA)+
+  labs(
+    title="DQ-BSA positive vesicles intensity at 02 hpi in BCG",
+    y="Whole Cell Int-Intensity of DQ-BSA positive vesicles",
+    x="COMPOUND TREATMENT")
+
+
+ggplot(dat,
+         aes(
+           x = Metadata_Status,
+           y = (Children_RCH_Count),
+           color = Metadata_InfStatus)) + ylim(0,120) +
+  geom_boxplot(outlier.shape = NA)+
+  labs(
+    title="DQ-BSA positive vesicles count at 02 hpi in BCG",
+    y="Count of DQ-BSA positive vesicles",
+    x="COMPOUND TREATMENT")
+
+
+ggplot(dat,
+         aes(
+           x = Metadata_Status,
+           y = (Intensity_IntegratedIntensity_OrigDRCH),
+           color = Metadata_InfStatus)) + ylim(0,2200) +
+  geom_boxplot(outlier.shape = NA)+
+  labs(
+    title="Dextran positive vesicles intensity at 02 hpi in BCG",
+    y="Whole Cell Int-Intensity of Dextran positive vesicles",
+    x="COMPOUND TREATMENT")
+
+
+
+ggplot(dat,
+         aes(
+           x = Metadata_Status,
+           y = (Children_DRCH_Count),
+           color = Metadata_InfStatus)) + ylim(0,150) +
+  geom_boxplot(outlier.shape = NA)+
+  labs(
+    title="Dextran positive vesicles count at 02 hpi in BCG",
+    y="Count of Dextran positive vesicles",
+    x="COMPOUND TREATMENT")
+
+
+```
+
+# binned intensity plots
+
+```{r, message=FALSE, eval=fit_plots}
+
+
+dat1 <- filter(dat, Intensity_IntegratedIntensity_OrigRCH > 0 & Intensity_IntegratedIntensity_OrigRCH < 1000)
+
+dat2 <- filter(dat, Intensity_IntegratedIntensity_OrigRCH > 1000 & Intensity_IntegratedIntensity_OrigRCH < 2500)
+
+dat3 <- filter(dat, Intensity_IntegratedIntensity_OrigRCH > 2500 & Intensity_IntegratedIntensity_OrigRCH < 3500)
+
+dat4 <- filter(dat, Intensity_IntegratedIntensity_OrigRCH > 3500 & Intensity_IntegratedIntensity_OrigRCH < 5000)
+
+
+
+
+ggplot(dat1,
+         aes(
+           x = Metadata_Status,
+           y = (Children_RCH_Count),
+           color = Metadata_InfStatus)) + ylim(0,50) +
+  geom_boxplot(outlier.shape = NA)+
+  labs(
+    title="DQ-BSA positive vesicles count at 02 hpi in BCG",
+    y="Count of DQ-BSA positive vesicles in bin 1",
+    x="COMPOUND TREATMENT")
+
+
+ggplot(dat2,
+         aes(
+           x = Metadata_Status,
+           y = (Children_RCH_Count),
+           color = Metadata_InfStatus)) + ylim(0,120) +
+  geom_boxplot(outlier.shape = NA)+
+  labs(
+    title="DQ-BSA positive vesicles count at 02 hpi in BCG",
+    y="Count of DQ-BSA positive vesicles in bin 2",
+    x="COMPOUND TREATMENT")
+
+
+ggplot(dat3,
+         aes(
+           x = Metadata_Status,
+           y = (Children_RCH_Count),
+           color = Metadata_InfStatus)) + ylim(0,130) +
+  geom_boxplot(outlier.shape = NA)+
+  labs(
+    title="DQ-BSA positive vesicles count at 02 hpi in BCG",
+    y="Count of DQ-BSA positive vesicles in bin 3",
+    x="COMPOUND TREATMENT")
+
+ggplot(dat4,
+         aes(
+           x = Metadata_Status,
+           y = (Children_RCH_Count),
+           color = Metadata_InfStatus)) + ylim(0,130) +
+  geom_boxplot(outlier.shape = NA)+
+  labs(
+    title="DQ-BSA positive vesicles count at 02 hpi in BCG",
+    y="Count of DQ-BSA positive vesicles in bin 4",
+    x="COMPOUND TREATMENT")
+
+#######
+
+ggplot(dat1,
+         aes(
+           x = Metadata_Status,
+           y = (Intensity_IntegratedIntensity_OrigRCH),
+           color = Metadata_InfStatus)) + 
+  geom_boxplot(outlier.shape = NA)+
+  labs(
+    title="DQ-BSA positive vesicles intensity at 02 hpi in BCG",
+    y="Whole Cell Int-Intensity of DQ-BSA positive vesicles in bin 1",
+    x="COMPOUND TREATMENT")
+
+
+ggplot(dat2,
+         aes(
+           x = Metadata_Status,
+           y = (Intensity_IntegratedIntensity_OrigRCH),
+           color = Metadata_InfStatus)) + 
+  geom_boxplot(outlier.shape = NA)+
+  labs(
+    title="DQ-BSA positive vesicles intensity at 02 hpi in BCG",
+    y="Whole Cell Int-Intensity of DQ-BSA positive vesicles in bin 2",
+    x="COMPOUND TREATMENT")
+
+
+ggplot(dat3 ,
+         aes(
+           x = Metadata_Status,
+           y = (Intensity_IntegratedIntensity_OrigRCH),
+           color = Metadata_InfStatus)) + 
+  geom_boxplot(outlier.shape = NA)+
+  labs(
+    title="DQ-BSA positive vesicles intensity at 02 hpi in BCG",
+    y="Whole Cell Int-Intensity of DQ-BSA positive vesicles in bin 3",
+    x="COMPOUND TREATMENT")
+
+
+ggplot(dat4,
+         aes(
+           x = Metadata_Status,
+           y = (Intensity_IntegratedIntensity_OrigRCH),
+           color = Metadata_InfStatus)) +  
+  geom_boxplot(outlier.shape = NA)+
+  labs(
+    title="DQ-BSA positive vesicles intensity at 02 hpi in BCG",
+    y="Whole Cell Int-Intensity of DQ-BSA positive vesicles in bin 4",
+    x="COMPOUND TREATMENT")
+
+
+
+
+
+```
